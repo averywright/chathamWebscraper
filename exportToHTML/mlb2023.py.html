@@ -1,0 +1,700 @@
+<html>
+<head>
+<title>mlb2023.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #629755; font-style: italic;}
+.s3 { color: #6a8759;}
+.s4 { color: #6897bb;}
+.s5 { color: #808080;}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+mlb2023.py</font>
+</center></td></tr></table>
+<pre><span class="s0">from </span><span class="s1">bs4 </span><span class="s0">import </span><span class="s1">BeautifulSoup</span>
+<span class="s0">import </span><span class="s1">requests</span>
+<span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np</span>
+<span class="s0">import </span><span class="s1">random</span>
+<span class="s0">import </span><span class="s1">math</span>
+<span class="s0">import </span><span class="s1">pandas </span><span class="s0">as </span><span class="s1">pd</span>
+<span class="s0">from </span><span class="s1">io </span><span class="s0">import </span><span class="s1">StringIO</span>
+<span class="s0">import </span><span class="s1">time</span>
+<span class="s0">from </span><span class="s1">datetime </span><span class="s0">import </span><span class="s1">date</span>
+<span class="s0">import </span><span class="s1">os</span><span class="s0">, </span><span class="s1">sys</span>
+<span class="s0">import </span><span class="s1">re</span>
+<span class="s0">import </span><span class="s1">string</span>
+
+<span class="s0">def </span><span class="s1">remove_duplicates(lst):</span>
+    <span class="s2">&quot;&quot;&quot; 
+    Given a list, remove duplicate indices by deleting the second occurrence of each duplicate index. 
+ 
+    Args: 
+    - lst: a list 
+ 
+    Returns: 
+    - a list with duplicates removed 
+    &quot;&quot;&quot;</span>
+    <span class="s1">seen = set()</span>
+    <span class="s1">result = []</span>
+    <span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">lst:</span>
+        <span class="s0">if </span><span class="s1">i </span><span class="s0">not in </span><span class="s1">seen:</span>
+            <span class="s1">result.append(i)</span>
+            <span class="s1">seen.add(i)</span>
+    <span class="s0">return </span><span class="s1">result</span>
+
+
+<span class="s1">mlb_stadiums = {</span>
+    <span class="s3">&quot;ARI&quot;</span><span class="s1">: [</span><span class="s4">335</span><span class="s0">, </span><span class="s4">407</span><span class="s0">, </span><span class="s4">335</span><span class="s0">, </span><span class="s4">166</span><span class="s0">, </span><span class="s4">191</span><span class="s0">, </span><span class="s4">171</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;ATL&quot;</span><span class="s1">: [</span><span class="s4">335</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">325</span><span class="s0">, </span><span class="s4">167</span><span class="s0">, </span><span class="s4">197</span><span class="s0">, </span><span class="s4">162</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;BAL&quot;</span><span class="s1">: [</span><span class="s4">333</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">318</span><span class="s0">, </span><span class="s4">194</span><span class="s0">, </span><span class="s4">211</span><span class="s0">, </span><span class="s4">219</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;BOS&quot;</span><span class="s1">: [</span><span class="s4">310</span><span class="s0">, </span><span class="s4">379</span><span class="s0">, </span><span class="s4">302</span><span class="s0">, </span><span class="s4">146</span><span class="s0">, </span><span class="s4">171</span><span class="s0">, </span><span class="s4">157</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;CHC&quot;</span><span class="s1">: [</span><span class="s4">355</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">353</span><span class="s0">, </span><span class="s4">162</span><span class="s0">, </span><span class="s4">154</span><span class="s0">, </span><span class="s4">135</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;CWS&quot;</span><span class="s1">: [</span><span class="s4">330</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">335</span><span class="s0">, </span><span class="s4">156</span><span class="s0">, </span><span class="s4">165</span><span class="s0">, </span><span class="s4">172</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;CIN&quot;</span><span class="s1">: [</span><span class="s4">328</span><span class="s0">, </span><span class="s4">404</span><span class="s0">, </span><span class="s4">325</span><span class="s0">, </span><span class="s4">158</span><span class="s0">, </span><span class="s4">181</span><span class="s0">, </span><span class="s4">173</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;CLE&quot;</span><span class="s1">: [</span><span class="s4">325</span><span class="s0">, </span><span class="s4">405</span><span class="s0">, </span><span class="s4">325</span><span class="s0">, </span><span class="s4">170</span><span class="s0">, </span><span class="s4">196</span><span class="s0">, </span><span class="s4">158</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;COL&quot;</span><span class="s1">: [</span><span class="s4">347</span><span class="s0">, </span><span class="s4">415</span><span class="s0">, </span><span class="s4">350</span><span class="s0">, </span><span class="s4">129</span><span class="s0">, </span><span class="s4">152</span><span class="s0">, </span><span class="s4">148</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;DET&quot;</span><span class="s1">: [</span><span class="s4">345</span><span class="s0">, </span><span class="s4">420</span><span class="s0">, </span><span class="s4">330</span><span class="s0">, </span><span class="s4">172</span><span class="s0">, </span><span class="s4">187</span><span class="s0">, </span><span class="s4">160</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;HOU&quot;</span><span class="s1">: [</span><span class="s4">315</span><span class="s0">, </span><span class="s4">409</span><span class="s0">, </span><span class="s4">326</span><span class="s0">, </span><span class="s4">148</span><span class="s0">, </span><span class="s4">175</span><span class="s0">, </span><span class="s4">163</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;KC&quot;</span><span class="s1">: [</span><span class="s4">330</span><span class="s0">, </span><span class="s4">410</span><span class="s0">, </span><span class="s4">330</span><span class="s0">, </span><span class="s4">157</span><span class="s0">, </span><span class="s4">187</span><span class="s0">, </span><span class="s4">177</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;LAA&quot;</span><span class="s1">: [</span><span class="s4">347</span><span class="s0">, </span><span class="s4">396</span><span class="s0">, </span><span class="s4">347</span><span class="s0">, </span><span class="s4">143</span><span class="s0">, </span><span class="s4">175</span><span class="s0">, </span><span class="s4">147</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;LAD&quot;</span><span class="s1">: [</span><span class="s4">330</span><span class="s0">, </span><span class="s4">395</span><span class="s0">, </span><span class="s4">330</span><span class="s0">, </span><span class="s4">162</span><span class="s0">, </span><span class="s4">177</span><span class="s0">, </span><span class="s4">137</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;MIA&quot;</span><span class="s1">: [</span><span class="s4">344</span><span class="s0">, </span><span class="s4">418</span><span class="s0">, </span><span class="s4">335</span><span class="s0">, </span><span class="s4">120</span><span class="s0">, </span><span class="s4">146</span><span class="s0">, </span><span class="s4">137</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;MIL&quot;</span><span class="s1">: [</span><span class="s4">344</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">345</span><span class="s0">, </span><span class="s4">149</span><span class="s0">, </span><span class="s4">165</span><span class="s0">, </span><span class="s4">163</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;MIN&quot;</span><span class="s1">: [</span><span class="s4">328</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">327</span><span class="s0">, </span><span class="s4">148</span><span class="s0">, </span><span class="s4">198</span><span class="s0">, </span><span class="s4">143</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;NYM&quot;</span><span class="s1">: [</span><span class="s4">335</span><span class="s0">, </span><span class="s4">408</span><span class="s0">, </span><span class="s4">330</span><span class="s0">, </span><span class="s4">144</span><span class="s0">, </span><span class="s4">156</span><span class="s0">, </span><span class="s4">163</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;NYY&quot;</span><span class="s1">: [</span><span class="s4">318</span><span class="s0">, </span><span class="s4">408</span><span class="s0">, </span><span class="s4">314</span><span class="s0">, </span><span class="s4">153</span><span class="s0">, </span><span class="s4">174</span><span class="s0">, </span><span class="s4">151</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;OAK&quot;</span><span class="s1">: [</span><span class="s4">330</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">330</span><span class="s0">, </span><span class="s4">144</span><span class="s0">, </span><span class="s4">174</span><span class="s0">, </span><span class="s4">135</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;PHI&quot;</span><span class="s1">: [</span><span class="s4">329</span><span class="s0">, </span><span class="s4">401</span><span class="s0">, </span><span class="s4">330</span><span class="s0">, </span><span class="s4">133</span><span class="s0">, </span><span class="s4">172</span><span class="s0">, </span><span class="s4">135</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;PIT&quot;</span><span class="s1">: [</span><span class="s4">325</span><span class="s0">, </span><span class="s4">399</span><span class="s0">, </span><span class="s4">320</span><span class="s0">, </span><span class="s4">132</span><span class="s0">, </span><span class="s4">154</span><span class="s0">, </span><span class="s4">137</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;SD&quot;</span><span class="s1">: [</span><span class="s4">336</span><span class="s0">, </span><span class="s4">396</span><span class="s0">, </span><span class="s4">322</span><span class="s0">, </span><span class="s4">167</span><span class="s0">, </span><span class="s4">180</span><span class="s0">, </span><span class="s4">156</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;SF&quot;</span><span class="s1">: [</span><span class="s4">339</span><span class="s0">, </span><span class="s4">399</span><span class="s0">, </span><span class="s4">309</span><span class="s0">, </span><span class="s4">122</span><span class="s0">, </span><span class="s4">138</span><span class="s0">, </span><span class="s4">109</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;SEA&quot;</span><span class="s1">: [</span><span class="s4">331</span><span class="s0">, </span><span class="s4">405</span><span class="s0">, </span><span class="s4">326</span><span class="s0">, </span><span class="s4">152</span><span class="s0">, </span><span class="s4">168</span><span class="s0">, </span><span class="s4">142</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;STL&quot;</span><span class="s1">: [</span><span class="s4">336</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">335</span><span class="s0">, </span><span class="s4">138</span><span class="s0">, </span><span class="s4">179</span><span class="s0">, </span><span class="s4">157</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;TB&quot;</span><span class="s1">: [</span><span class="s4">315</span><span class="s0">, </span><span class="s4">404</span><span class="s0">, </span><span class="s4">370</span><span class="s0">, </span><span class="s4">136</span><span class="s0">, </span><span class="s4">162</span><span class="s0">, </span><span class="s4">128</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;TEX&quot;</span><span class="s1">: [</span><span class="s4">332</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">325</span><span class="s0">, </span><span class="s4">157</span><span class="s0">, </span><span class="s4">183</span><span class="s0">, </span><span class="s4">165</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;TOR&quot;</span><span class="s1">: [</span><span class="s4">328</span><span class="s0">, </span><span class="s4">400</span><span class="s0">, </span><span class="s4">375</span><span class="s0">, </span><span class="s4">120</span><span class="s0">, </span><span class="s4">136</span><span class="s0">, </span><span class="s4">109</span><span class="s1">]</span><span class="s0">,</span>
+    <span class="s3">&quot;WSH&quot;</span><span class="s1">: [</span><span class="s4">335</span><span class="s0">, </span><span class="s4">402</span><span class="s0">, </span><span class="s4">335</span><span class="s0">, </span><span class="s4">157</span><span class="s0">, </span><span class="s4">192</span><span class="s0">, </span><span class="s4">146</span><span class="s1">]</span>
+<span class="s1">}</span>
+
+<span class="s1">stadium_directions = {</span>
+    <span class="s3">'ATL'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'WSH'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'SF'</span><span class="s1">: </span><span class="s4">247.5</span><span class="s0">,</span>
+    <span class="s3">'NYY'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'BAL'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'BOS'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'MIL'</span><span class="s1">: </span><span class="s4">337.5</span><span class="s0">,</span>
+    <span class="s3">'CHC'</span><span class="s1">: </span><span class="s4">337.5</span><span class="s0">,</span>
+    <span class="s3">'DET'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'TB'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'PHI'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'TEX'</span><span class="s1">: </span><span class="s4">202.5</span><span class="s0">,</span>
+    <span class="s3">'PIT'</span><span class="s1">: </span><span class="s4">292.5</span><span class="s0">,</span>
+    <span class="s3">'CIN'</span><span class="s1">: </span><span class="s4">292.5</span><span class="s0">,</span>
+    <span class="s3">'TOR'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'STL'</span><span class="s1">: </span><span class="s4">337.5</span><span class="s0">,</span>
+    <span class="s3">'MIN'</span><span class="s1">: </span><span class="s4">202.5</span><span class="s0">,</span>
+    <span class="s3">'KC'</span><span class="s1">: </span><span class="s4">202.5</span><span class="s0">,</span>
+    <span class="s3">'NYM'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'MIA'</span><span class="s1">: </span><span class="s4">22.5</span><span class="s0">,</span>
+    <span class="s3">'CWS'</span><span class="s1">: </span><span class="s4">157.5</span><span class="s0">,</span>
+    <span class="s3">'HOU'</span><span class="s1">: </span><span class="s4">202.5</span><span class="s0">,</span>
+    <span class="s3">'COL'</span><span class="s1">: </span><span class="s4">192.5</span><span class="s0">,</span>
+    <span class="s3">'SD'</span><span class="s1">: </span><span class="s4">247.5</span><span class="s0">,</span>
+    <span class="s3">'LAA'</span><span class="s1">: </span><span class="s4">247.5</span><span class="s0">,</span>
+    <span class="s3">'OAK'</span><span class="s1">: </span><span class="s4">292.5</span><span class="s0">,</span>
+    <span class="s3">'ARI'</span><span class="s1">: </span><span class="s4">292.5</span><span class="s0">,</span>
+    <span class="s3">'LAD'</span><span class="s1">: </span><span class="s4">247.5</span><span class="s0">,</span>
+    <span class="s3">'CLE'</span><span class="s1">: </span><span class="s4">202.5</span><span class="s0">,</span>
+    <span class="s3">'SEA'</span><span class="s1">: </span><span class="s4">292.5</span>
+<span class="s1">}</span>
+
+<span class="s1">city_mascot_dict = {</span>
+	<span class="s3">'ATL'</span><span class="s1">: </span><span class="s3">'braves'</span><span class="s0">,</span>
+	<span class="s3">'WSH'</span><span class="s1">: </span><span class="s3">'nationals'</span><span class="s0">,</span>
+	<span class="s3">'SF'</span><span class="s1">: </span><span class="s3">'giants'</span><span class="s0">,</span>
+	<span class="s3">'NYY'</span><span class="s1">: </span><span class="s3">'yankees'</span><span class="s0">,</span>
+	<span class="s3">'BAL'</span><span class="s1">: </span><span class="s3">'orioles'</span><span class="s0">,</span>
+	<span class="s3">'BOS'</span><span class="s1">: </span><span class="s3">'redsox'</span><span class="s0">,</span>
+	<span class="s3">'MIL'</span><span class="s1">: </span><span class="s3">'brewers'</span><span class="s0">,</span>
+	<span class="s3">'CHC'</span><span class="s1">: </span><span class="s3">'cubs'</span><span class="s0">,</span>
+	<span class="s3">'DET'</span><span class="s1">: </span><span class="s3">'tigers'</span><span class="s0">,</span>
+	<span class="s3">'TB'</span><span class="s1">: </span><span class="s3">'rays'</span><span class="s0">,</span>
+	<span class="s3">'PHI'</span><span class="s1">: </span><span class="s3">'phillies'</span><span class="s0">,</span>
+	<span class="s3">'TEX'</span><span class="s1">: </span><span class="s3">'rangers'</span><span class="s0">,</span>
+	<span class="s3">'PIT'</span><span class="s1">: </span><span class="s3">'pirates'</span><span class="s0">,</span>
+	<span class="s3">'CIN'</span><span class="s1">: </span><span class="s3">'reds'</span><span class="s0">,</span>
+	<span class="s3">'TOR'</span><span class="s1">: </span><span class="s3">'bluejays'</span><span class="s0">,</span>
+	<span class="s3">'STL'</span><span class="s1">: </span><span class="s3">'cardinals'</span><span class="s0">,</span>
+	<span class="s3">'MIN'</span><span class="s1">: </span><span class="s3">'twins'</span><span class="s0">,</span>
+	<span class="s3">'KC'</span><span class="s1">: </span><span class="s3">'royals'</span><span class="s0">,</span>
+	<span class="s3">'NYM'</span><span class="s1">: </span><span class="s3">'mets'</span><span class="s0">,</span>
+	<span class="s3">'MIA'</span><span class="s1">: </span><span class="s3">'marlins'</span><span class="s0">,</span>
+	<span class="s3">'CWS'</span><span class="s1">: </span><span class="s3">'whitesox'</span><span class="s0">,</span>
+	<span class="s3">'HOU'</span><span class="s1">: </span><span class="s3">'astros'</span><span class="s0">,</span>
+	<span class="s3">'COL'</span><span class="s1">: </span><span class="s3">'rockies'</span><span class="s0">,</span>
+	<span class="s3">'SD'</span><span class="s1">: </span><span class="s3">'padres'</span><span class="s0">,</span>
+	<span class="s3">'LAA'</span><span class="s1">: </span><span class="s3">'angels'</span><span class="s0">,</span>
+	<span class="s3">'OAK'</span><span class="s1">: </span><span class="s3">'athletics'</span><span class="s0">,</span>
+	<span class="s3">'AZ'</span><span class="s1">: </span><span class="s3">'d</span><span class="s0">\'</span><span class="s3">backs'</span><span class="s0">,</span>
+	<span class="s3">'LAD'</span><span class="s1">: </span><span class="s3">'dodgers'</span><span class="s0">,</span>
+	<span class="s3">'CLE'</span><span class="s1">: </span><span class="s3">'guardians'</span><span class="s0">,</span>
+	<span class="s3">'SEA'</span><span class="s1">: </span><span class="s3">'mariners'</span>
+<span class="s1">}</span>
+<span class="s1">english_pattern = re.compile(</span><span class="s3">r'^[a-zA-Z]+$'</span><span class="s1">)</span>
+
+<span class="s0">def </span><span class="s1">extract_name(input_string):</span>
+	<span class="s1">start_index = input_string.find(</span><span class="s3">'/player/'</span><span class="s1">) + len(</span><span class="s3">'/player/'</span><span class="s1">)</span>
+	<span class="s1">end_index = input_string.find(</span><span class="s3">'-'</span><span class="s0">, </span><span class="s1">start_index)</span>
+	<span class="s0">if </span><span class="s1">end_index == -</span><span class="s4">1</span><span class="s1">:</span>
+		<span class="s1">end_index = input_string.find(</span><span class="s3">'&quot;'</span><span class="s0">, </span><span class="s1">start_index)</span>
+	<span class="s1">name = input_string[start_index:end_index].replace(</span><span class="s3">'-'</span><span class="s0">, </span><span class="s3">' '</span><span class="s1">).title()</span>
+
+	<span class="s5"># Extract last name from href attribute</span>
+	<span class="s1">end_index = input_string.find(</span><span class="s3">'-'</span><span class="s0">, </span><span class="s1">end_index) + </span><span class="s4">1</span>
+	<span class="s0">if </span><span class="s1">end_index == -</span><span class="s4">1</span><span class="s1">:</span>
+		<span class="s1">end_index = input_string.find(</span><span class="s3">'&quot;'</span><span class="s0">, </span><span class="s1">start_index)</span>
+	<span class="s1">last_name = input_string[end_index:end_index+</span><span class="s4">5</span><span class="s1">].replace(</span><span class="s3">'-'</span><span class="s0">, </span><span class="s3">' '</span><span class="s1">).title()</span>
+
+	<span class="s1">full_name = name + </span><span class="s3">' ' </span><span class="s1">+ last_name</span>
+	<span class="s0">return </span><span class="s1">full_name</span>
+
+<span class="s1">url = </span><span class="s3">&quot;https://www.mlb.com/schedule&quot;</span>
+<span class="s1">page = requests.get(url)</span>
+<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+<span class="s1">soupTwo = soup.find(</span><span class="s3">'div'</span><span class="s0">,</span><span class="s3">&quot;ScheduleCollectionGridstyle__SectionWrapper-sc-c0iua4-0 guIOQi&quot;</span><span class="s1">)</span>
+<span class="s1">text_table = soupTwo.find_all(</span><span class="s3">'div'</span><span class="s0">,</span><span class="s3">&quot;TeamWrappersstyle__MobileTeamWrapper-sc-uqs6qh-1 IESfj&quot;</span><span class="s1">)</span>
+<span class="s1">headers = []</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">text_table:</span>
+	<span class="s1">title = i.text</span>
+	<span class="s1">headers.append(title)</span>
+
+<span class="s1">headers = remove_duplicates(headers)</span>
+<span class="s1">pitching_stats = {}</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">headers:</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">&quot;WSH&quot;</span><span class="s1">:</span>
+		<span class="s1">i = </span><span class="s3">'WSN'</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">'AZ'</span><span class="s1">:</span>
+		<span class="s1">i = </span><span class="s3">'ARI'</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">'CWS'</span><span class="s1">:</span>
+		<span class="s1">i = </span><span class="s3">'CHW'</span>
+	<span class="s1">url = </span><span class="s3">'https://www.baseball-reference.com/teams/' </span><span class="s1">+ i + </span><span class="s3">'/2023.shtml'</span>
+	<span class="s1">time.sleep(</span><span class="s4">5</span><span class="s1">)</span>
+	<span class="s1">page = requests.get(url)</span>
+	<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+	<span class="s1">table = []</span>
+	<span class="s1">stats = []</span>
+	<span class="s1">counter = </span><span class="s4">0</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s1">table = soup.find_all(</span><span class="s3">'tfoot'</span><span class="s1">)[</span><span class="s4">1</span><span class="s1">]</span>
+		<span class="s1">tableTwo = table.find_all(</span><span class="s3">'td'</span><span class="s1">)</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">tableTwo:</span>
+			<span class="s1">counter += </span><span class="s4">1</span>
+			<span class="s0">if </span><span class="s1">j.text != </span><span class="s3">&quot;Team Totals&quot;</span><span class="s1">:</span>
+				<span class="s1">stats.append(j.text)</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">print(i)</span>
+	<span class="s1">pitching_stats[i] = stats</span>
+
+<span class="s1">print(</span><span class="s3">'3'</span><span class="s1">)</span>
+
+<span class="s1">playerInfo = []</span>
+<span class="s1">url = </span><span class="s3">'https://www.baseball-reference.com/previews/'</span>
+<span class="s1">time.sleep(</span><span class="s4">5</span><span class="s1">)</span>
+<span class="s1">page = requests.get(url)</span>
+<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+<span class="s1">textTables = soup.find(class_=</span><span class="s3">&quot;game_summaries&quot;</span><span class="s1">)</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">(textTables.find_all(</span><span class="s3">'div'</span><span class="s1">)):</span>
+	<span class="s1">count = </span><span class="s4">0</span>
+	<span class="s1">temp = ((i.find_all(</span><span class="s3">'tr'</span><span class="s1">)))</span>
+	<span class="s0">if </span><span class="s1">len(temp) == </span><span class="s4">4</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">temp:</span>
+			<span class="s0">for </span><span class="s1">k </span><span class="s0">in </span><span class="s1">(j.find_all(</span><span class="s3">'a'</span><span class="s1">)):</span>
+				<span class="s0">if </span><span class="s1">k.text != </span><span class="s3">'Preview'</span><span class="s1">:</span>
+					<span class="s0">if </span><span class="s1">k.get(</span><span class="s3">'href'</span><span class="s1">) != </span><span class="s3">''</span><span class="s1">:</span>
+						<span class="s1">count += </span><span class="s4">1</span>
+	<span class="s0">if </span><span class="s1">count == </span><span class="s4">4</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">temp:</span>
+			<span class="s0">for </span><span class="s1">k </span><span class="s0">in </span><span class="s1">(j.find_all(</span><span class="s3">'a'</span><span class="s1">)):</span>
+				<span class="s0">if </span><span class="s1">k.text != </span><span class="s3">'Preview'</span><span class="s1">:</span>
+					<span class="s1">playerInfo.append(k)</span>
+
+<span class="s0">del </span><span class="s1">textTables</span>
+
+<span class="s1">teamAndPitcher = {}</span>
+<span class="s1">counter = </span><span class="s4">0</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">playerInfo:</span>
+	<span class="s1">fruit = i.text</span>
+	<span class="s1">counter += </span><span class="s4">1</span>
+	<span class="s0">if </span><span class="s1">(counter - </span><span class="s4">1</span><span class="s1">) % </span><span class="s4">4 </span><span class="s1">== </span><span class="s4">0</span><span class="s1">:</span>
+		<span class="s1">teamAndPitcher[fruit] = </span><span class="s3">''</span>
+		<span class="s1">slotOne = fruit</span>
+	<span class="s0">elif </span><span class="s1">(counter - </span><span class="s4">2</span><span class="s1">) % </span><span class="s4">4 </span><span class="s1">== </span><span class="s4">0</span><span class="s1">:</span>
+		<span class="s1">teamAndPitcher[fruit] = </span><span class="s3">''</span>
+		<span class="s1">slotTwo = fruit</span>
+	<span class="s0">elif </span><span class="s1">(counter - </span><span class="s4">3</span><span class="s1">) % </span><span class="s4">4 </span><span class="s1">== </span><span class="s4">0</span><span class="s1">:</span>
+		<span class="s1">fruit = i.get(</span><span class="s3">'href'</span><span class="s1">)</span>
+		<span class="s1">teamAndPitcher[slotOne] = fruit</span>
+	<span class="s0">else</span><span class="s1">:</span>
+		<span class="s1">fruit = i.get(</span><span class="s3">'href'</span><span class="s1">)</span>
+		<span class="s1">teamAndPitcher[slotTwo] = fruit</span>
+
+<span class="s0">for </span><span class="s1">k </span><span class="s0">in </span><span class="s1">teamAndPitcher:</span>
+	<span class="s1">temp = []</span>
+	<span class="s1">url = teamAndPitcher[k]</span>
+	<span class="s1">time.sleep(</span><span class="s4">5</span><span class="s1">)</span>
+	<span class="s1">page = requests.get(url)</span>
+	<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+	<span class="s1">counter = </span><span class="s4">0</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">(soup.find(</span><span class="s3">'tbody'</span><span class="s1">).find(id=</span><span class="s3">&quot;pitching_standard.2023&quot;</span><span class="s1">)).find_all(</span><span class="s3">'td'</span><span class="s1">):</span>
+			<span class="s0">if </span><span class="s1">counter != </span><span class="s4">1 </span><span class="s0">and </span><span class="s1">counter != </span><span class="s4">2</span><span class="s1">:</span>
+				<span class="s1">temp.append(i.text)</span>
+			<span class="s1">counter += </span><span class="s4">1</span>
+		<span class="s1">teamAndPitcher[k] = temp</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">teamAndPitcher[k] = </span><span class="s3">''</span>
+
+<span class="s1">newPitchers = {}</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">teamAndPitcher:</span>
+	<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">city_mascot_dict:</span>
+		<span class="s0">if </span><span class="s1">i.lower() == city_mascot_dict[j]:</span>
+			<span class="s1">newPitchers[j] = teamAndPitcher[i]</span>
+
+<span class="s0">del </span><span class="s1">teamAndPitcher</span>
+			
+<span class="s1">print(</span><span class="s3">'4'</span><span class="s1">)</span>
+
+<span class="s1">totals = []</span>
+<span class="s1">count = </span><span class="s4">0</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">headers:</span>
+	<span class="s1">count += </span><span class="s4">1</span>
+	<span class="s1">x = city_mascot_dict[i]</span>
+	<span class="s0">if </span><span class="s1">x == </span><span class="s3">'d</span><span class="s0">\'</span><span class="s3">backs'</span><span class="s1">:</span>
+		<span class="s1">x = </span><span class="s3">'dbacks'</span>
+	<span class="s1">url = </span><span class="s3">'https://www.mlb.com/' </span><span class="s1">+ x + </span><span class="s3">'/roster/starting-lineups'</span>
+	<span class="s1">print(url)</span>
+	<span class="s1">time.sleep(</span><span class="s4">5</span><span class="s1">)</span>
+	<span class="s1">page = requests.get(url)</span>
+	<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+	<span class="s1">soupTwo = soup.find(</span><span class="s3">'div'</span><span class="s0">,</span><span class="s3">'starting-lineups__matchup'</span><span class="s1">)</span>
+	<span class="s1">text_table = soupTwo.find(class_=</span><span class="s3">&quot;starting-lineups__teams starting-lineups__teams--sm starting-lineups__teams--xl&quot;</span><span class="s1">).find_all(</span><span class="s3">'ol'</span><span class="s1">)</span>
+	<span class="s1">counter = </span><span class="s4">0</span>
+	<span class="s1">player_list = []</span>
+	<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">text_table:</span>
+		<span class="s1">counter += </span><span class="s4">1</span>
+		<span class="s0">if </span><span class="s1">count % </span><span class="s4">2 </span><span class="s1">!= </span><span class="s4">0</span><span class="s1">:</span>
+			<span class="s0">if </span><span class="s1">counter &gt; </span><span class="s4">1</span><span class="s1">:</span>
+				<span class="s0">break</span>
+		<span class="s0">else</span><span class="s1">:</span>
+			<span class="s0">if </span><span class="s1">counter &lt; </span><span class="s4">2</span><span class="s1">:</span>
+				<span class="s0">continue</span>
+		<span class="s1">player_list.append(i.text)</span>
+
+	<span class="s1">player_list = player_list[</span><span class="s4">0</span><span class="s1">].strip()</span>
+
+	<span class="s5"># Split the string into individual lines</span>
+	<span class="s1">player_lines = player_list.split(</span><span class="s3">'</span><span class="s0">\n</span><span class="s3">'</span><span class="s1">)</span>
+
+	<span class="s5"># Extract only the player names and concatenate them with commas</span>
+	<span class="s1">player_names = []</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">line </span><span class="s0">in </span><span class="s1">player_lines:</span>
+			<span class="s1">name_parts = line.split(</span><span class="s3">' '</span><span class="s1">)</span>
+			<span class="s0">if </span><span class="s1">name_parts[</span><span class="s4">2</span><span class="s1">] == </span><span class="s3">'Jr.'</span><span class="s1">:</span>
+				<span class="s5"># If the name has a suffix (e.g. Jr.), keep it</span>
+				<span class="s1">player_names.append(name_parts[</span><span class="s4">0</span><span class="s1">] + </span><span class="s3">' ' </span><span class="s1">+ name_parts[</span><span class="s4">1</span><span class="s1">] + </span><span class="s3">' ' </span><span class="s1">+ name_parts[</span><span class="s4">2</span><span class="s1">])</span>
+			<span class="s0">else</span><span class="s1">:</span>
+				<span class="s1">player_names.append(name_parts[</span><span class="s4">0</span><span class="s1">] + </span><span class="s3">' ' </span><span class="s1">+ name_parts[</span><span class="s4">1</span><span class="s1">])</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">error = </span><span class="s0">True</span>
+	<span class="s1">totals.append(player_names)</span>
+
+<span class="s1">team_starting_dict = {team: pitcher </span><span class="s0">for </span><span class="s1">pitcher</span><span class="s0">, </span><span class="s1">team </span><span class="s0">in </span><span class="s1">zip(totals</span><span class="s0">, </span><span class="s1">headers)}</span>
+
+
+<span class="s1">batting_dict = team_starting_dict</span>
+<span class="s1">temp = </span><span class="s3">''</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">team_starting_dict:</span>
+	<span class="s1">time.sleep(</span><span class="s4">5</span><span class="s1">)</span>
+	<span class="s1">temp = i</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">'WSH'</span><span class="s1">:</span>
+		<span class="s1">i = </span><span class="s3">&quot;WSN&quot;</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">'CWS'</span><span class="s1">:</span>
+		<span class="s1">i = </span><span class="s3">'CHW'</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">'KC'</span><span class="s1">:</span>
+		<span class="s1">i = </span><span class="s3">'KC'</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">'AZ'</span><span class="s1">:</span>
+		<span class="s1">i = </span><span class="s3">'ARI'</span>
+	<span class="s1">url = </span><span class="s3">'https://www.baseball-reference.com/teams/' </span><span class="s1">+ i + </span><span class="s3">'/2023.shtml#team_batting'</span>
+	<span class="s1">page = requests.get(url)</span>
+	<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+	<span class="s1">text_table = soup.find(</span><span class="s3">&quot;table&quot;</span><span class="s0">, </span><span class="s1">id = </span><span class="s3">&quot;team_batting&quot;</span><span class="s1">)</span>
+	<span class="s1">count = </span><span class="s4">0</span>
+	<span class="s1">battingTemp = []</span>
+	<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">text_table.find_all(</span><span class="s3">'tr'</span><span class="s1">):</span>
+		<span class="s1">count += </span><span class="s4">1</span>
+		<span class="s0">for </span><span class="s1">k </span><span class="s0">in </span><span class="s1">j.find_all(</span><span class="s3">'td'</span><span class="s1">):</span>
+			<span class="s1">battingTemp.append(k.text)</span>
+		<span class="s0">if </span><span class="s1">count &gt; </span><span class="s4">9</span><span class="s1">:</span>
+			<span class="s0">break</span>
+	<span class="s1">batting_dict[temp] = battingTemp</span>
+
+<span class="s0">def </span><span class="s1">bruh(player_stats):</span>
+	<span class="s0">for </span><span class="s1">i</span><span class="s0">, </span><span class="s1">stat </span><span class="s0">in </span><span class="s1">enumerate(player_stats):</span>
+		<span class="s0">if </span><span class="s1">any(c.isalpha() </span><span class="s0">for </span><span class="s1">c </span><span class="s0">in </span><span class="s1">stat) </span><span class="s0">and not </span><span class="s1">(</span><span class="s3">'#' </span><span class="s0">in </span><span class="s1">stat </span><span class="s0">or </span><span class="s3">'*' </span><span class="s0">in </span><span class="s1">stat):</span>
+			<span class="s1">player_stats[i] = </span><span class="s3">'0'</span>
+		<span class="s0">elif </span><span class="s3">'#' </span><span class="s0">in </span><span class="s1">stat:</span>
+			<span class="s1">player_stats[i] = </span><span class="s3">'2'</span>
+		<span class="s0">elif </span><span class="s3">'*' </span><span class="s0">in </span><span class="s1">stat:</span>
+			<span class="s1">player_stats[i] = </span><span class="s3">'1'</span>
+	<span class="s0">return </span><span class="s1">player_stats</span>
+
+<span class="s1">temp = batting_dict</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">temp:</span>
+	<span class="s1">batting_dict[i] = bruh(temp[i])</span>
+
+<span class="s0">del </span><span class="s1">batting_dict</span>
+
+<span class="s1">print(</span><span class="s3">'5'</span><span class="s1">)</span>
+
+<span class="s1">empty_slate = team_starting_dict</span>
+
+<span class="s1">counter = </span><span class="s4">0</span>
+
+<span class="s0">def </span><span class="s1">find_all(a_str</span><span class="s0">, </span><span class="s1">sub):</span>
+	<span class="s1">start = </span><span class="s4">0</span>
+	<span class="s0">while True</span><span class="s1">:</span>
+		<span class="s1">start = a_str.find(sub</span><span class="s0">, </span><span class="s1">start)</span>
+		<span class="s0">if </span><span class="s1">start == -</span><span class="s4">1</span><span class="s1">: </span><span class="s0">return</span>
+		<span class="s0">yield </span><span class="s1">start</span>
+		<span class="s1">start += len(sub)</span>
+
+
+<span class="s0">for </span><span class="s1">m </span><span class="s0">in </span><span class="s1">empty_slate:</span>
+	<span class="s1">print(m)</span>
+	<span class="s1">my_list = team_starting_dict[m]</span>
+	<span class="s1">empty_slate[m] = []</span>
+	<span class="s0">if </span><span class="s1">m == </span><span class="s3">'WSH'</span><span class="s1">:</span>
+		<span class="s1">m = </span><span class="s3">&quot;WSN&quot;</span>
+	<span class="s0">if </span><span class="s1">m == </span><span class="s3">'CWS'</span><span class="s1">:</span>
+		<span class="s1">m = </span><span class="s3">'CHW'</span>
+	<span class="s0">if </span><span class="s1">m == </span><span class="s3">'KC'</span><span class="s1">:</span>
+		<span class="s1">m = </span><span class="s3">'KC'</span>
+	<span class="s0">if </span><span class="s1">m == </span><span class="s3">'AZ'</span><span class="s1">:</span>
+		<span class="s1">m = </span><span class="s3">'ARI'</span>
+	<span class="s1">url = </span><span class="s3">'https://www.baseball-reference.com/teams/' </span><span class="s1">+ m + </span><span class="s3">'/2023.shtml'</span>
+	<span class="s1">time.sleep(</span><span class="s4">5</span><span class="s1">)</span>
+	<span class="s1">page = requests.get(url)</span>
+	<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+	<span class="s1">table = soup.find(id=</span><span class="s3">&quot;team_batting&quot;</span><span class="s1">)</span>
+	<span class="s1">tableTwo = table.find_all(</span><span class="s3">'tr'</span><span class="s1">)</span>
+	<span class="s0">if </span><span class="s1">m == </span><span class="s3">'WSN'</span><span class="s1">:</span>
+		<span class="s1">m = </span><span class="s3">&quot;WSH&quot;</span>
+	<span class="s0">if </span><span class="s1">m == </span><span class="s3">'CHW'</span><span class="s1">:</span>
+		<span class="s1">m = </span><span class="s3">'CWS'</span>
+	<span class="s0">if </span><span class="s1">m == </span><span class="s3">'ARI'</span><span class="s1">:</span>
+		<span class="s1">m = </span><span class="s3">'AZ'</span>
+	<span class="s1">count = </span><span class="s4">0</span>
+	<span class="s1">hrefs = {}</span>
+	<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">tableTwo:</span>
+		<span class="s1">count += </span><span class="s4">1</span>
+		<span class="s0">if </span><span class="s1">count &gt; </span><span class="s4">16</span><span class="s1">:</span>
+			<span class="s0">break</span>
+		<span class="s1">counter = </span><span class="s4">0</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">i.find_all(</span><span class="s3">'td'</span><span class="s1">):</span>
+			<span class="s1">counter += </span><span class="s4">1</span>
+			<span class="s0">if </span><span class="s1">counter == </span><span class="s4">2</span><span class="s1">:</span>
+				<span class="s1">hrefs[str(j.find(</span><span class="s3">'a'</span><span class="s1">).text)] = str(j.find(</span><span class="s3">'a'</span><span class="s1">).get(</span><span class="s3">'href'</span><span class="s1">))</span>
+	
+	<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">hrefs:</span>
+		<span class="s1">print(i)</span>
+		<span class="s1">url = </span><span class="s3">'https://www.baseball-reference.com/' </span><span class="s1">+ hrefs[i] + </span><span class="s3">'#batting_advanced'</span>
+		<span class="s1">time.sleep(</span><span class="s4">5</span><span class="s1">)</span>
+		<span class="s1">page = requests.get(url)</span>
+		<span class="s1">soup = BeautifulSoup(page.content</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+		<span class="s1">start = (list(find_all(str(soup)</span><span class="s0">, </span><span class="s3">&quot;&lt;tr id=</span><span class="s0">\&quot;</span><span class="s3">batting_advanced.2023</span><span class="s0">\&quot;</span><span class="s3">&quot;</span><span class="s1">)))</span>
+		<span class="s1">end = (list(find_all(str(soup)</span><span class="s0">, </span><span class="s3">&quot;&lt;/tr&gt;&quot;</span><span class="s1">)))</span>
+		<span class="s1">finalEnd = </span><span class="s4">0</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">end:</span>
+			<span class="s0">if </span><span class="s1">int(j) &gt; start[</span><span class="s4">0</span><span class="s1">]:</span>
+				<span class="s1">finalEnd = j</span>
+				<span class="s0">break</span>
+		<span class="s1">tables = []</span>
+		<span class="s1">count = </span><span class="s4">0</span>
+		<span class="s0">for </span><span class="s1">k </span><span class="s0">in </span><span class="s1">start:</span>
+			<span class="s1">count += </span><span class="s4">1</span>
+			<span class="s1">counter = </span><span class="s4">0</span>
+			<span class="s1">newSoup = </span><span class="s3">''</span>
+			<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">(str(soup)):</span>
+				<span class="s1">counter += </span><span class="s4">1</span>
+				<span class="s0">if </span><span class="s1">counter &gt;= k </span><span class="s0">and </span><span class="s1">counter &lt;= finalEnd:</span>
+					<span class="s1">newSoup += i</span>
+			<span class="s1">tables.append(newSoup)</span>
+		
+		<span class="s1">stats = []</span>
+		<span class="s1">soup = BeautifulSoup(tables[</span><span class="s4">0</span><span class="s1">]</span><span class="s0">, </span><span class="s3">'html.parser'</span><span class="s1">)</span>
+		<span class="s1">count = </span><span class="s4">0</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">(soup.find_all(</span><span class="s3">'td'</span><span class="s1">)):</span>
+			<span class="s1">count += </span><span class="s4">1</span>
+			<span class="s0">if </span><span class="s1">count != </span><span class="s4">2 </span><span class="s0">and </span><span class="s1">count != </span><span class="s4">3</span><span class="s1">:</span>
+				<span class="s1">stats.append(j.text)</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">stats:</span>
+			<span class="s1">empty_slate[m].append(j)</span>
+
+
+<span class="s1">print(empty_slate)</span>
+
+<span class="s5"># Your OpenWeatherMap API key</span>
+<span class="s1">api_key = </span><span class="s3">&quot;62b3d7333daab23975263c0d56992167&quot;</span>
+
+<span class="s5"># Dictionary to store weather data for each MLB city</span>
+<span class="s1">mlb_weather = {}</span>
+
+<span class="s5"># List of MLB cities and their latitude and longitude coordinates</span>
+<span class="s1">mlb_cities = {</span>
+	<span class="s3">'ARI'</span><span class="s1">: (</span><span class="s4">33.445</span><span class="s0">, </span><span class="s1">-</span><span class="s4">112.066</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'ATL'</span><span class="s1">: (</span><span class="s4">33.755</span><span class="s0">, </span><span class="s1">-</span><span class="s4">84.39</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'BAL'</span><span class="s1">: (</span><span class="s4">39.283</span><span class="s0">, </span><span class="s1">-</span><span class="s4">76.621</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'BOS'</span><span class="s1">: (</span><span class="s4">42.346</span><span class="s0">, </span><span class="s1">-</span><span class="s4">71.097</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'CHC'</span><span class="s1">: (</span><span class="s4">41.948</span><span class="s0">, </span><span class="s1">-</span><span class="s4">87.655</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'CWS'</span><span class="s1">: (</span><span class="s4">41.829</span><span class="s0">, </span><span class="s1">-</span><span class="s4">87.633</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'CIN'</span><span class="s1">: (</span><span class="s4">39.097</span><span class="s0">, </span><span class="s1">-</span><span class="s4">84.506</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'CLE'</span><span class="s1">: (</span><span class="s4">41.495</span><span class="s0">, </span><span class="s1">-</span><span class="s4">81.685</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'COL'</span><span class="s1">: (</span><span class="s4">39.756</span><span class="s0">, </span><span class="s1">-</span><span class="s4">104.993</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'DET'</span><span class="s1">: (</span><span class="s4">42.339</span><span class="s0">, </span><span class="s1">-</span><span class="s4">83.049</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'HOU'</span><span class="s1">: (</span><span class="s4">29.757</span><span class="s0">, </span><span class="s1">-</span><span class="s4">95.355</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'KC'</span><span class="s1">: (</span><span class="s4">39.048</span><span class="s0">, </span><span class="s1">-</span><span class="s4">94.484</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'LAA'</span><span class="s1">: (</span><span class="s4">33.800</span><span class="s0">, </span><span class="s1">-</span><span class="s4">117.882</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'LAD'</span><span class="s1">: (</span><span class="s4">34.073</span><span class="s0">, </span><span class="s1">-</span><span class="s4">118.240</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'MIA'</span><span class="s1">: (</span><span class="s4">25.778</span><span class="s0">, </span><span class="s1">-</span><span class="s4">80.220</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'MIL'</span><span class="s1">: (</span><span class="s4">43.028</span><span class="s0">, </span><span class="s1">-</span><span class="s4">87.971</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'MIN'</span><span class="s1">: (</span><span class="s4">44.981</span><span class="s0">, </span><span class="s1">-</span><span class="s4">93.277</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'NYM'</span><span class="s1">: (</span><span class="s4">40.758</span><span class="s0">, </span><span class="s1">-</span><span class="s4">73.843</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'NYY'</span><span class="s1">: (</span><span class="s4">40.829</span><span class="s0">, </span><span class="s1">-</span><span class="s4">73.926</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'OAK'</span><span class="s1">: (</span><span class="s4">37.751</span><span class="s0">, </span><span class="s1">-</span><span class="s4">122.200</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'PHI'</span><span class="s1">: (</span><span class="s4">39.905</span><span class="s0">, </span><span class="s1">-</span><span class="s4">75.166</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'PIT'</span><span class="s1">: (</span><span class="s4">40.447</span><span class="s0">, </span><span class="s1">-</span><span class="s4">80.006</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'SD'</span><span class="s1">: (</span><span class="s4">32.707</span><span class="s0">, </span><span class="s1">-</span><span class="s4">117.157</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'SF'</span><span class="s1">: (</span><span class="s4">37.778</span><span class="s0">, </span><span class="s1">-</span><span class="s4">122.389</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'SEA'</span><span class="s1">: (</span><span class="s4">47.591</span><span class="s0">, </span><span class="s1">-</span><span class="s4">122.333</span><span class="s1">)</span><span class="s0">,</span>
+	<span class="s3">'STL'</span><span class="s1">: (</span><span class="s4">38.623</span><span class="s0">, </span><span class="s1">-</span><span class="s4">90.185</span><span class="s1">)</span>
+<span class="s1">}</span>
+
+<span class="s1">weather_data = {}</span>
+<span class="s5"># Loop through each city in the list and get the current weather data from OpenWeatherMap</span>
+<span class="s0">for </span><span class="s1">city</span><span class="s0">, </span><span class="s1">coords </span><span class="s0">in </span><span class="s1">mlb_cities.items():</span>
+	<span class="s1">lat</span><span class="s0">, </span><span class="s1">lon = coords</span>
+	<span class="s5"># Make a request to OpenWeatherMap API for the current weather in the city</span>
+	<span class="s1">response = requests.get(</span>
+		<span class="s3">f&quot;http://api.openweathermap.org/data/2.5/weather?lat=</span><span class="s0">{</span><span class="s1">lat</span><span class="s0">}</span><span class="s3">&amp;lon=</span><span class="s0">{</span><span class="s1">lon</span><span class="s0">}</span><span class="s3">&amp;appid=</span><span class="s0">{</span><span class="s1">api_key</span><span class="s0">}</span><span class="s3">&amp;units=metric&quot;</span><span class="s1">)</span>
+	<span class="s0">if </span><span class="s1">response.status_code == </span><span class="s4">200</span><span class="s1">:</span>
+		<span class="s5"># Extract the relevant data from the API response</span>
+		<span class="s1">data = response.json()</span>
+		<span class="s1">current_temp = data[</span><span class="s3">&quot;main&quot;</span><span class="s1">][</span><span class="s3">&quot;temp&quot;</span><span class="s1">]</span>
+		<span class="s1">feels_like = data[</span><span class="s3">&quot;main&quot;</span><span class="s1">][</span><span class="s3">&quot;feels_like&quot;</span><span class="s1">]</span>
+		<span class="s1">min_temp = data[</span><span class="s3">&quot;main&quot;</span><span class="s1">][</span><span class="s3">&quot;temp_min&quot;</span><span class="s1">]</span>
+		<span class="s1">max_temp = data[</span><span class="s3">&quot;main&quot;</span><span class="s1">][</span><span class="s3">&quot;temp_max&quot;</span><span class="s1">]</span>
+		<span class="s1">pressure = data[</span><span class="s3">&quot;main&quot;</span><span class="s1">][</span><span class="s3">&quot;pressure&quot;</span><span class="s1">]</span>
+		<span class="s1">humidity = data[</span><span class="s3">&quot;main&quot;</span><span class="s1">][</span><span class="s3">&quot;humidity&quot;</span><span class="s1">]</span>
+		<span class="s1">wind_speed = data[</span><span class="s3">&quot;wind&quot;</span><span class="s1">][</span><span class="s3">&quot;speed&quot;</span><span class="s1">]</span>
+		<span class="s1">wind_dir = data[</span><span class="s3">&quot;wind&quot;</span><span class="s1">][</span><span class="s3">&quot;deg&quot;</span><span class="s1">]</span>
+		<span class="s1">visibility = data.get(</span><span class="s3">&quot;visibility&quot;</span><span class="s0">, </span><span class="s3">&quot;N/A&quot;</span><span class="s1">)</span>
+		<span class="s1">uv_index = data.get(</span><span class="s3">&quot;uvi&quot;</span><span class="s0">, </span><span class="s3">&quot;N/A&quot;</span><span class="s1">)</span>
+		<span class="s1">rain = data.get(</span><span class="s3">&quot;rain&quot;</span><span class="s0">, </span><span class="s1">{}).get(</span><span class="s3">&quot;1h&quot;</span><span class="s0">, </span><span class="s4">0</span><span class="s1">)</span>
+		<span class="s5"># Add the weather data to the dictionary</span>
+		<span class="s1">weather_data[city] = {</span><span class="s3">&quot;Current Temp&quot;</span><span class="s1">: current_temp</span><span class="s0">,</span>
+							  <span class="s3">&quot;Feels Like&quot;</span><span class="s1">: feels_like</span><span class="s0">,</span>
+							  <span class="s3">&quot;Min Temp&quot;</span><span class="s1">: min_temp</span><span class="s0">,</span>
+							  <span class="s3">&quot;Max Temp&quot;</span><span class="s1">: max_temp</span><span class="s0">,</span>
+							  <span class="s3">&quot;Pressure&quot;</span><span class="s1">: pressure</span><span class="s0">,</span>
+							  <span class="s3">&quot;Humidity&quot;</span><span class="s1">: humidity</span><span class="s0">,</span>
+							  <span class="s3">&quot;Wind Speed&quot;</span><span class="s1">: wind_speed</span><span class="s0">,</span>
+							  <span class="s3">&quot;Wind Direction&quot;</span><span class="s1">: wind_dir</span><span class="s0">,</span>
+							  <span class="s3">&quot;Rain (last hour)&quot;</span><span class="s1">: rain}</span>
+	<span class="s0">else</span><span class="s1">:</span>
+		<span class="s5"># If the API call fails, print an error message</span>
+		<span class="s1">print(</span><span class="s3">f&quot;Failed to retrieve weather data for </span><span class="s0">{</span><span class="s1">city</span><span class="s0">}</span><span class="s3">&quot;</span><span class="s1">)</span>
+
+
+<span class="s5"># Print the weather data for each MLB city</span>
+<span class="s0">def </span><span class="s1">extract_numbers(d):</span>
+	<span class="s1">numbers = []</span>
+	<span class="s0">for </span><span class="s1">key</span><span class="s0">, </span><span class="s1">value </span><span class="s0">in </span><span class="s1">d.items():</span>
+		<span class="s0">if </span><span class="s1">isinstance(value</span><span class="s0">, </span><span class="s1">(int</span><span class="s0">, </span><span class="s1">float)):</span>
+			<span class="s1">numbers.append(value)</span>
+	<span class="s0">return </span><span class="s1">numbers</span>
+
+
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">weather_data:</span>
+	<span class="s1">weather_data[i] = extract_numbers(weather_data[i])</span>
+
+<span class="s1">print(</span><span class="s3">'6'</span><span class="s1">)</span>
+<span class="s1">print(newPitchers)</span>
+<span class="s1">print(weather_data)</span>
+<span class="s1">print(mlb_stadiums)</span>
+<span class="s1">print(pitching_stats)</span>
+<span class="s1">print(stadium_directions)</span>
+<span class="s1">print(empty_slate)</span>
+<span class="s1">total_stats = {}</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">newPitchers:</span>
+	<span class="s1">total_stats[i] = []</span>
+	<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">newPitchers[i]:</span>
+		<span class="s1">total_stats[i].append(j)</span>
+	<span class="s0">if </span><span class="s1">i == </span><span class="s3">'AZ'</span><span class="s1">:</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">weather_data[</span><span class="s3">'ARI'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'2'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">mlb_stadiums[</span><span class="s3">'ARI'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'3'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">empty_slate[</span><span class="s3">'ARI'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'4'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">stadium_directions[</span><span class="s3">'ARI'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'5'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">pitching_stats[</span><span class="s3">'ARI'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'6'</span><span class="s1">)</span>
+	<span class="s0">elif </span><span class="s1">i == </span><span class="s3">'WSH'</span><span class="s1">:</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">weather_data[</span><span class="s3">'WSN'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'2'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">mlb_stadiums[</span><span class="s3">'WSN'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'3'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">empty_slate[</span><span class="s3">'WSN'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'4'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">stadium_directions[</span><span class="s3">'WSN'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'5'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">pitching_stats[</span><span class="s3">'WSN'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'6'</span><span class="s1">)</span>
+	<span class="s0">elif </span><span class="s1">i == </span><span class="s3">'CWS'</span><span class="s1">:</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">weather_data[</span><span class="s3">'CHW'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'2'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">mlb_stadiums[</span><span class="s3">'CHW'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'3'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">empty_slate[</span><span class="s3">'CHW'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'4'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">stadium_directions[</span><span class="s3">'CHW'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'5'</span><span class="s1">)</span>
+		<span class="s0">try</span><span class="s1">:</span>
+			<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">pitching_stats[</span><span class="s3">'CHW'</span><span class="s1">]:</span>
+				<span class="s1">total_stats[i].append(j)</span>
+		<span class="s0">except</span><span class="s1">:</span>
+			<span class="s1">print(</span><span class="s3">'6'</span><span class="s1">)</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">weather_data[i]:</span>
+			<span class="s1">total_stats[i].append(j)</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">print(</span><span class="s3">'2'</span><span class="s1">)</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">mlb_stadiums[i]:</span>
+			<span class="s1">total_stats[i].append(j)</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">print(</span><span class="s3">'3'</span><span class="s1">)</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">empty_slate[i]:</span>
+			<span class="s1">total_stats[i].append(j)</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">print(</span><span class="s3">'4'</span><span class="s1">)</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">stadium_directions[i]:</span>
+			<span class="s1">total_stats[i].append(j)</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">print(</span><span class="s3">'5'</span><span class="s1">)</span>
+	<span class="s0">try</span><span class="s1">:</span>
+		<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">pitching_stats[i]:</span>
+			<span class="s1">total_stats[i].append(j)</span>
+	<span class="s0">except</span><span class="s1">:</span>
+		<span class="s1">print(</span><span class="s3">'6'</span><span class="s1">)</span>
+<span class="s0">del </span><span class="s1">newPitchers</span>
+<span class="s0">del </span><span class="s1">weather_data</span>
+<span class="s0">del </span><span class="s1">mlb_stadiums</span>
+<span class="s0">del </span><span class="s1">empty_slate</span>
+<span class="s0">del </span><span class="s1">stadium_directions</span>
+<span class="s0">del </span><span class="s1">pitching_stats</span>
+
+<span class="s1">temp = {}</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">total_stats:</span>
+	<span class="s1">temp[i] = total_stats[i]</span>
+	<span class="s1">total_stats[i] = []</span>
+<span class="s1">print(temp)</span>
+<span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">temp:</span>
+	<span class="s1">counter = </span><span class="s4">0</span>
+	<span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">temp[i]:</span>
+		<span class="s1">counter += </span><span class="s4">1</span>
+		<span class="s0">if </span><span class="s1">counter &lt; len(temp[i]):</span>
+			<span class="s0">if </span><span class="s1">j != </span><span class="s3">'Rank in 15 AL teams' </span><span class="s0">and </span><span class="s1">j != </span><span class="s3">'Rank in 15 NL teams' </span><span class="s0">and </span><span class="s1">j != </span><span class="s3">'NL' </span><span class="s0">and </span><span class="s1">j != </span><span class="s3">'AL' </span><span class="s0">and </span><span class="s1">temp[i][</span>
+				<span class="s1">counter] != </span><span class="s3">'NL' </span><span class="s0">and </span><span class="s1">temp[i][counter] != </span><span class="s3">'AL'</span><span class="s1">:</span>
+				<span class="s0">if </span><span class="s1">j == </span><span class="s3">''</span><span class="s1">:</span>
+					<span class="s1">total_stats[i].append(</span><span class="s4">0</span><span class="s1">)</span>
+				<span class="s0">else</span><span class="s1">:</span>
+					<span class="s1">newString = </span><span class="s3">''</span>
+					<span class="s0">for </span><span class="s1">k </span><span class="s0">in </span><span class="s1">str(j):</span>
+						<span class="s0">if </span><span class="s1">k != </span><span class="s3">'%'</span><span class="s1">:</span>
+							<span class="s1">newString += k</span>
+					<span class="s1">total_stats[i].append((float(newString)))</span>
+		
+		<span class="s0">else</span><span class="s1">:</span>
+			<span class="s0">if </span><span class="s1">j != </span><span class="s3">'Rank in 15 AL teams' </span><span class="s0">and </span><span class="s1">j != </span><span class="s3">'Rank in 15 NL teams' </span><span class="s0">and </span><span class="s1">j != </span><span class="s3">'NL' </span><span class="s0">and </span><span class="s1">j != </span><span class="s3">'AL'</span><span class="s1">:</span>
+				<span class="s0">if </span><span class="s1">j == </span><span class="s3">''</span><span class="s1">:</span>
+					<span class="s1">total_stats[i].append(</span><span class="s4">0</span><span class="s1">)</span>
+				<span class="s0">else</span><span class="s1">:</span>
+					<span class="s1">newString = </span><span class="s3">''</span>
+					<span class="s0">for </span><span class="s1">k </span><span class="s0">in </span><span class="s1">str(j):</span>
+						<span class="s0">if </span><span class="s1">k != </span><span class="s3">'%'</span><span class="s1">:</span>
+							<span class="s1">newString += k</span>
+					<span class="s1">total_stats[i].append((float(newString)))</span>
+<span class="s1">print(total_stats)</span>
+
+<span class="s0">with </span><span class="s1">open(</span><span class="s3">'MLBdataForTraining.txt'</span><span class="s0">, </span><span class="s3">'rb+'</span><span class="s1">) </span><span class="s0">as </span><span class="s1">fh:</span>
+    <span class="s1">fh.seek(-</span><span class="s4">1</span><span class="s0">, </span><span class="s4">2</span><span class="s1">)</span>
+    <span class="s1">fh.truncate()</span>
+<span class="s0">with </span><span class="s1">open(</span><span class="s3">&quot;MLBdataForTraining.txt&quot;</span><span class="s0">, </span><span class="s3">&quot;a&quot;</span><span class="s1">) </span><span class="s0">as </span><span class="s1">o:</span>
+	<span class="s1">o.write(</span><span class="s3">&quot;,&quot; </span><span class="s1">+ str(total_stats) + </span><span class="s3">']'</span><span class="s1">)</span>
+</pre>
+</body>
+</html>
